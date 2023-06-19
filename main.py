@@ -89,16 +89,24 @@ def test():
 
         logger_value.set(f"{model}, fw: {fw_version}")
 
+        if gopro.ble_status.video_rem.get_value().flatten < 1:
+            log_and_reset("Format SD and try again.")
+            return
+
+        if gopro.ble_status.batt_present.get_value().flatten == False:
+            log_and_reset("Battery not recognized.")
+            return
+
+        if gopro.ble_status.batt_ok_ota.get_value().flatten == False:
+            log_and_reset("Not enough battery level to continue")
+            return
+
         if not gopro.ble_status.band_5ghz_avail.get_value().flatten:
-            log_and_reset("5G is not available")
+            log_and_reset("5G is not available.")
             return
 
         if not gopro.ble_status.sd_status.get_value().flatten == Params.SDStatus.OK:
-            log_and_reset("Failed SD card")
-            return
-
-        if gopro.ble_status.int_batt_per.get_value().flatten == 0:
-            log_and_reset("Failed battery test")
+            log_and_reset("Failed SD card.")
             return
 
         assert gopro.http_command.load_preset_group(
@@ -141,7 +149,7 @@ def test():
             x["n"] for x in gopro.http_command.get_media_list().flatten
         )
 
-        play_mp3_file("audio/gopro_captura.mp3")
+        play_mp3_file("audio/gopro_take_photo.mp3")
 
         time.sleep(2)
 

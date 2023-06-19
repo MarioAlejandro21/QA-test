@@ -1,5 +1,4 @@
-images
-videos
+images/*
+audio/*
 .venv
 .env
-audio
