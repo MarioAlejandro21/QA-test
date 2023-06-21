@@ -1,8 +1,7 @@
-from pydub import AudioSegment
-from pydub.playback import play
+from sounddevice import play, wait
+from soundfile import read
+import winsound
 
 
-def play_mp3_file(path):
-    
-    sound = AudioSegment.from_mp3(path)
-    play(sound)
+def play_wav_file(path):
+    winsound.PlaySound(path, winsound.SND_FILENAME)

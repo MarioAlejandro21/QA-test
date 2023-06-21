@@ -2,3 +2,4 @@ images/*
 audio/*
 .venv
 .env
+__pycache__

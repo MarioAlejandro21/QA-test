@@ -9,13 +9,16 @@ from dotenv import load_dotenv
 import os
 import serial
 import time
-from audio import play_mp3_file
+from audio import play_wav_file
 
 
 load_dotenv()
 
 # /dev/ttyACM0
 # C3464250420765
+
+SERIAL_PORT = 'COM11'
+COMMAND_FILE_NAME = 'gopro_take_photo.wav'
 
 
 root = Tk()
@@ -31,7 +34,7 @@ logger_value = StringVar(value="")
 result_label = ttk.Label(mainframe, textvariable=logger_value)
 
 # SN INPUT FIELD
-sn_value = StringVar()
+sn_value = StringVar(value="C3464250420765")
 sn_input = ttk.Entry(mainframe, width=20, textvariable=sn_value)
 
 # PROGRESS BAR
@@ -81,7 +84,7 @@ def test():
     last_four_digits = sn[-4:]
 
     with WirelessGoPro(
-        target=f"GoPro {last_four_digits}", sudo_password=os.environ["PASSWORD"]
+        target=f"GoPro {last_four_digits}"
     ) as gopro:
         logger_value.set("Checking settings..")
 
@@ -115,7 +118,7 @@ def test():
 
         make_image_paths()
 
-        with serial.Serial("/dev/ttyACM0", 9600, timeout=1) as ser:
+        with serial.Serial(SERIAL_PORT, 9600, timeout=1) as ser:
             time.sleep(2)
 
             for letter in ["R", "G", "B"]:
@@ -125,7 +128,7 @@ def test():
 
                 ser.write(letter.encode())
 
-                time.sleep(0.5)
+                time.sleep(0.2)
 
                 assert gopro.http_command.set_shutter(
                     shutter=Params.Toggle.ENABLE
@@ -149,7 +152,7 @@ def test():
             x["n"] for x in gopro.http_command.get_media_list().flatten
         )
 
-        play_mp3_file("audio/gopro_take_photo.mp3")
+        play_wav_file(f"audio/{COMMAND_FILE_NAME}")
 
         time.sleep(2)
 
