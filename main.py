@@ -10,6 +10,7 @@ import os
 import serial
 import time
 from audio import play_wav_file
+from pixel_detection import delta_less_than
 
 
 load_dotenv()
@@ -17,8 +18,8 @@ load_dotenv()
 # /dev/ttyACM0
 # C3464250420765
 
-SERIAL_PORT = 'COM11'
-COMMAND_FILE_NAME = 'gopro_take_photo.wav'
+SERIAL_PORT = "COM11"
+COMMAND_FILE_NAME = "gopro_take_photo.wav"
 
 
 root = Tk()
@@ -62,6 +63,11 @@ def log_and_reset(msg: str):
     pb.stop()
 
 
+def threaded_fun(fun):
+    T = threading.Thread(target=fun)
+    T.start()
+
+
 # START TEST BUTTON
 
 from validators import get_model_with_sn_or_none
@@ -83,9 +89,7 @@ def test():
 
     last_four_digits = sn[-4:]
 
-    with WirelessGoPro(
-        target=f"GoPro {last_four_digits}"
-    ) as gopro:
+    with WirelessGoPro(target=f"GoPro {last_four_digits}") as gopro:
         logger_value.set("Checking settings..")
 
         fw_version = get_human_readable_fw_version(gopro)
@@ -152,6 +156,18 @@ def test():
             x["n"] for x in gopro.http_command.get_media_list().flatten
         )
 
+        logger_value.set("Comparing pictures...")
+
+        if not (
+            delta_less_than("stock_images/R.jpg", "images/R.jpg", 30)
+            and delta_less_than("stock_images/B.jpg", "images/B.jpg", 30)
+            and delta_less_than("stock_images/G.jpg", "images/G.jpg", 30)
+        ):
+            log_and_reset("Failed image test")
+            return
+
+        logger_value.set("Testing voice command")
+
         play_wav_file(f"audio/{COMMAND_FILE_NAME}")
 
         time.sleep(2)
@@ -206,19 +222,82 @@ def test():
     pb.stop()
 
 
-def threaded_test():
-    T = threading.Thread(target=test)
-    T.start()
+start_test_button = ttk.Button(
+    mainframe, text="START TEST", command=lambda: threaded_fun(test)
+)
+
+# CALIBRATION BUTTON
 
 
-start_test_button = ttk.Button(mainframe, text="START TEST", command=threaded_test)
+def image_calibrate():
+    pb.start()
 
+    start_test_button["state"] = "disabled"
+    logger_value.set("Pairing...")
+
+    sn = sn_value.get()
+
+    model = get_model_with_sn_or_none(sn)
+
+    if model == None:
+        log_and_reset("Invalid sn or unsupported model")
+        return
+
+    last_four_digits = sn[-4:]
+
+    with WirelessGoPro(target=f"GoPro {last_four_digits}") as gopro:
+        logger_value.set("Calibrating..")
+        assert gopro.http_command.load_preset_group(
+            group=Params.PresetGroup.PHOTO
+        ).is_ok
+
+        make_image_paths()
+
+        with serial.Serial(SERIAL_PORT, 9600, timeout=1) as ser:
+            time.sleep(2)
+
+            for letter in ["R", "G", "B"]:
+                media_set_before = set(
+                    x["n"] for x in gopro.http_command.get_media_list().flatten
+                )
+
+                ser.write(letter.encode())
+
+                time.sleep(0.2)
+
+                assert gopro.http_command.set_shutter(
+                    shutter=Params.Toggle.ENABLE
+                ).is_ok
+
+                time.sleep(0.5)
+
+                ser.write("X".encode())
+
+                media_set_after = set(
+                    x["n"] for x in gopro.http_command.get_media_list().flatten
+                )
+
+                last_photo_filename = media_set_after.difference(media_set_before).pop()
+
+                gopro.http_command.download_file(
+                    camera_file=last_photo_filename,
+                    local_file=f"stock_images/{letter}.jpg",
+                )
+    start_test_button["state"] = "normal"
+    logger_value.set("Calibration complete")
+    pb.stop()
+
+
+image_calibration_button = ttk.Button(
+    mainframe, text="IMG. CALIBRATION", command=lambda: threaded_fun(image_calibrate)
+)
 
 # RENDER ELEMENTS IN WINDOW
 sn_input.grid(column=0, row=0)
 start_test_button.grid(column=0, row=2)
-pb.grid(column=0, row=3)
-result_label.grid(column=0, row=4)
+image_calibration_button.grid(column=0, row=3)
+pb.grid(column=0, row=4)
+result_label.grid(column=0, row=5)
 
 sn_input.focus()
 

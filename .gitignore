@@ -1,5 +1,6 @@
 images/*
 audio/*
+stock_images
 .venv
 .env
 __pycache__
