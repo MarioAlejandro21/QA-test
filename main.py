@@ -125,22 +125,22 @@ def test():
         with serial.Serial(SERIAL_PORT, 9600, timeout=1) as ser:
             time.sleep(2)
 
-            for letter in ["R", "G", "B"]:
+            for letter in ["W", "X"]:
                 media_set_before = set(
                     x["n"] for x in gopro.http_command.get_media_list().flatten
                 )
 
                 ser.write(letter.encode())
 
-                time.sleep(0.2)
+                # time.sleep(0.2)
 
                 assert gopro.http_command.set_shutter(
                     shutter=Params.Toggle.ENABLE
                 ).is_ok
 
-                time.sleep(0.5)
+                time.sleep(2)
 
-                ser.write("X".encode())
+                # ser.write("X".encode())
 
                 media_set_after = set(
                     x["n"] for x in gopro.http_command.get_media_list().flatten
@@ -159,9 +159,7 @@ def test():
         logger_value.set("Comparing pictures...")
 
         if not (
-            delta_less_than("stock_images/R.jpg", "images/R.jpg", 30)
-            and delta_less_than("stock_images/B.jpg", "images/B.jpg", 30)
-            and delta_less_than("stock_images/G.jpg", "images/G.jpg", 30)
+            delta_less_than("stock_images/W.jpg", "images/W.jpg", 30)
         ):
             log_and_reset("Failed image test")
             return
@@ -256,22 +254,22 @@ def image_calibrate():
         with serial.Serial(SERIAL_PORT, 9600, timeout=1) as ser:
             time.sleep(2)
 
-            for letter in ["R", "G", "B"]:
+            for letter in ["W", "X"]:
                 media_set_before = set(
                     x["n"] for x in gopro.http_command.get_media_list().flatten
                 )
 
                 ser.write(letter.encode())
 
-                time.sleep(0.2)
+                # time.sleep(0.2)
 
                 assert gopro.http_command.set_shutter(
                     shutter=Params.Toggle.ENABLE
                 ).is_ok
 
-                time.sleep(0.5)
+                time.sleep(2)
 
-                ser.write("X".encode())
+                # ser.write("X".encode())
 
                 media_set_after = set(
                     x["n"] for x in gopro.http_command.get_media_list().flatten

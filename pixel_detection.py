@@ -9,8 +9,6 @@ def delta_less_than(reference_path: str, test_path: str, max_delta):
 
     deltas = deltaE_cie76(ref_img, test_img).flatten()
 
-    print(np.max(deltas))
-
     return not np.any(deltas >= max_delta)
 
 
