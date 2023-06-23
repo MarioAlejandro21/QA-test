@@ -18,8 +18,8 @@ load_dotenv()
 # /dev/ttyACM0
 # C3464250420765
 
-SERIAL_PORT = "COM11"
-COMMAND_FILE_NAME = "gopro_take_photo.wav"
+SERIAL_PORT = "COM12"
+COMMAND_FILE_NAME = "gopro_take_a_photo.wav"
 
 
 root = Tk()
@@ -66,6 +66,31 @@ def log_and_reset(msg: str):
 def threaded_fun(fun):
     T = threading.Thread(target=fun)
     T.start()
+
+
+def take_and_download_image(
+    gopro: WirelessGoPro, serial_driver, char_name: str, dest: str
+):
+    media_set_before = set(x["n"] for x in gopro.http_command.get_media_list().flatten)
+
+    serial_driver.write(char_name.encode())
+
+    assert gopro.http_command.set_shutter(shutter=Params.Toggle.ENABLE).is_ok
+
+    serial_driver.write("X".encode())
+
+    time.sleep(2)
+
+    media_set_after = set(x["n"] for x in gopro.http_command.get_media_list().flatten)
+
+    last_photo_filename = media_set_after.difference(media_set_before).pop()
+
+    if not os.path.exists(dest):
+        os.makedirs(dest)
+
+    gopro.http_command.download_file(
+        camera_file=last_photo_filename, local_file=f"{dest}/{char_name}.jpg"
+    )
 
 
 # START TEST BUTTON
@@ -122,49 +147,11 @@ def test():
 
         make_image_paths()
 
-        with serial.Serial(SERIAL_PORT, 9600, timeout=1) as ser:
-            time.sleep(2)
-
-            for letter in ["W", "X"]:
-                media_set_before = set(
-                    x["n"] for x in gopro.http_command.get_media_list().flatten
-                )
-
-                ser.write(letter.encode())
-
-                # time.sleep(0.2)
-
-                assert gopro.http_command.set_shutter(
-                    shutter=Params.Toggle.ENABLE
-                ).is_ok
-
-                time.sleep(2)
-
-                # ser.write("X".encode())
-
-                media_set_after = set(
-                    x["n"] for x in gopro.http_command.get_media_list().flatten
-                )
-
-                last_photo_filename = media_set_after.difference(media_set_before).pop()
-
-                gopro.http_command.download_file(
-                    camera_file=last_photo_filename, local_file=f"images/{letter}.jpg"
-                )
+        logger_value.set("Testing voice command")
 
         media_set_before = set(
             x["n"] for x in gopro.http_command.get_media_list().flatten
         )
-
-        logger_value.set("Comparing pictures...")
-
-        if not (
-            delta_less_than("stock_images/W.jpg", "images/W.jpg", 30)
-        ):
-            log_and_reset("Failed image test")
-            return
-
-        logger_value.set("Testing voice command")
 
         play_wav_file(f"audio/{COMMAND_FILE_NAME}")
 
@@ -176,6 +163,82 @@ def test():
 
         if len(media_set_before) == len(media_set_after):
             log_and_reset("failed voice command")
+            return
+
+        with serial.Serial(SERIAL_PORT, 9600, timeout=1) as ser:
+            time.sleep(2)
+
+            # TAKE COLOR IMAGES
+            for letter in ["R", "G", "B"]:
+                media_set_before = set(
+                    x["n"] for x in gopro.http_command.get_media_list().flatten
+                )
+
+                ser.write(letter.encode())
+
+                assert gopro.http_command.set_shutter(
+                    shutter=Params.Toggle.ENABLE
+                ).is_ok
+
+                ser.write("X".encode())
+
+                time.sleep(2)
+
+                media_set_after = set(
+                    x["n"] for x in gopro.http_command.get_media_list().flatten
+                )
+
+                last_photo_filename = media_set_after.difference(media_set_before).pop()
+
+                gopro.http_command.download_file(
+                    camera_file=last_photo_filename, local_file=f"images/{letter}.jpg"
+                )
+
+            # TAKE WHITE IMAGE
+            media_set_before = set(
+                x["n"] for x in gopro.http_command.get_media_list().flatten
+            )
+
+            ser.write("W".encode())
+
+            assert gopro.http_command.set_shutter(shutter=Params.Toggle.ENABLE).is_ok
+
+            media_set_after = set(
+                x["n"] for x in gopro.http_command.get_media_list().flatten
+            )
+
+            last_photo_filename = media_set_after.difference(media_set_before).pop()
+
+            gopro.http_command.download_file(
+                camera_file=last_photo_filename, local_file=f"images/{letter}.jpg"
+            )
+
+            time.sleep(3)
+
+            # TAKE BLACK IMAGE
+
+            media_set_before = set(
+                x["n"] for x in gopro.http_command.get_media_list().flatten
+            )
+
+            ser.write("X".encode())
+
+            assert gopro.http_command.set_shutter(shutter=Params.Toggle.ENABLE).is_ok
+
+            media_set_after = set(
+                x["n"] for x in gopro.http_command.get_media_list().flatten
+            )
+
+            last_photo_filename = media_set_after.difference(media_set_before).pop()
+
+            gopro.http_command.download_file(
+                camera_file=last_photo_filename, local_file=f"images/{letter}.jpg"
+            )
+
+        logger_value.set("Looking for sensor issues...")
+
+        if not delta_less_than("stock_images/W.jpg", "images/W.jpg", 100):
+            log_and_reset("Failed sensor test")
             return
 
         logger_value.set("Prepare to take video")
@@ -254,22 +317,20 @@ def image_calibrate():
         with serial.Serial(SERIAL_PORT, 9600, timeout=1) as ser:
             time.sleep(2)
 
-            for letter in ["W", "X"]:
+            for letter in ["W"]:
                 media_set_before = set(
                     x["n"] for x in gopro.http_command.get_media_list().flatten
                 )
 
                 ser.write(letter.encode())
 
-                # time.sleep(0.2)
-
                 assert gopro.http_command.set_shutter(
                     shutter=Params.Toggle.ENABLE
                 ).is_ok
 
-                time.sleep(2)
+                time.sleep(0.5)
 
-                # ser.write("X".encode())
+                ser.write("X".encode())
 
                 media_set_after = set(
                     x["n"] for x in gopro.http_command.get_media_list().flatten
