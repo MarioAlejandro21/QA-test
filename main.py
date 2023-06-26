@@ -45,18 +45,6 @@ pb = ttk.Progressbar(mainframe, orient=HORIZONTAL, length=120, mode="indetermina
 pair_button = ttk.Button(mainframe, text="PAIR CAMERA")
 
 
-def make_image_paths():
-    images_path = "images"
-
-    if not os.path.exists(images_path):
-        os.makedirs(images_path)
-
-    stock_path = "stock_images"
-
-    if not os.path.exists(stock_path):
-        os.makedirs(stock_path)
-
-
 def log_and_reset(msg: str):
     logger_value.set(msg)
     start_test_button["state"] = "normal"
@@ -76,6 +64,8 @@ def take_and_download_image(
     serial_driver.write(char_name.encode())
 
     assert gopro.http_command.set_shutter(shutter=Params.Toggle.ENABLE).is_ok
+    
+    time.sleep(0.5)
 
     serial_driver.write("X".encode())
 
@@ -145,7 +135,7 @@ def test():
             group=Params.PresetGroup.PHOTO
         ).is_ok
 
-        make_image_paths()
+        time.sleep(0.3)
 
         logger_value.set("Testing voice command")
 
@@ -165,75 +155,19 @@ def test():
             log_and_reset("failed voice command")
             return
 
+        logger_value.set("Taking testing images...")
+
         with serial.Serial(SERIAL_PORT, 9600, timeout=1) as ser:
             time.sleep(2)
-
-            # TAKE COLOR IMAGES
-            for letter in ["R", "G", "B"]:
-                media_set_before = set(
-                    x["n"] for x in gopro.http_command.get_media_list().flatten
-                )
-
-                ser.write(letter.encode())
-
-                assert gopro.http_command.set_shutter(
-                    shutter=Params.Toggle.ENABLE
-                ).is_ok
-
-                ser.write("X".encode())
-
-                time.sleep(2)
-
-                media_set_after = set(
-                    x["n"] for x in gopro.http_command.get_media_list().flatten
-                )
-
-                last_photo_filename = media_set_after.difference(media_set_before).pop()
-
-                gopro.http_command.download_file(
-                    camera_file=last_photo_filename, local_file=f"images/{letter}.jpg"
-                )
-
-            # TAKE WHITE IMAGE
-            media_set_before = set(
-                x["n"] for x in gopro.http_command.get_media_list().flatten
-            )
-
-            ser.write("W".encode())
-
-            assert gopro.http_command.set_shutter(shutter=Params.Toggle.ENABLE).is_ok
-
-            media_set_after = set(
-                x["n"] for x in gopro.http_command.get_media_list().flatten
-            )
-
-            last_photo_filename = media_set_after.difference(media_set_before).pop()
-
-            gopro.http_command.download_file(
-                camera_file=last_photo_filename, local_file=f"images/{letter}.jpg"
-            )
-
+            ser.write("X".encode())
             time.sleep(3)
 
-            # TAKE BLACK IMAGE
+            # TAKE COLOR IMAGES
 
-            media_set_before = set(
-                x["n"] for x in gopro.http_command.get_media_list().flatten
-            )
-
-            ser.write("X".encode())
-
-            assert gopro.http_command.set_shutter(shutter=Params.Toggle.ENABLE).is_ok
-
-            media_set_after = set(
-                x["n"] for x in gopro.http_command.get_media_list().flatten
-            )
-
-            last_photo_filename = media_set_after.difference(media_set_before).pop()
-
-            gopro.http_command.download_file(
-                camera_file=last_photo_filename, local_file=f"images/{letter}.jpg"
-            )
+            for letter in ["W", "R", "G", "B"]:
+                take_and_download_image(
+                    gopro=gopro, serial_driver=ser, char_name=letter, dest="images"
+                )
 
         logger_value.set("Looking for sensor issues...")
 
@@ -312,36 +246,15 @@ def image_calibrate():
             group=Params.PresetGroup.PHOTO
         ).is_ok
 
-        make_image_paths()
-
         with serial.Serial(SERIAL_PORT, 9600, timeout=1) as ser:
             time.sleep(2)
+            ser.write("X".encode())
+            time.sleep(3)
 
-            for letter in ["W"]:
-                media_set_before = set(
-                    x["n"] for x in gopro.http_command.get_media_list().flatten
-                )
+            take_and_download_image(
+                gopro=gopro, serial_driver=ser, char_name="W", dest="stock_images"
+            )
 
-                ser.write(letter.encode())
-
-                assert gopro.http_command.set_shutter(
-                    shutter=Params.Toggle.ENABLE
-                ).is_ok
-
-                time.sleep(0.5)
-
-                ser.write("X".encode())
-
-                media_set_after = set(
-                    x["n"] for x in gopro.http_command.get_media_list().flatten
-                )
-
-                last_photo_filename = media_set_after.difference(media_set_before).pop()
-
-                gopro.http_command.download_file(
-                    camera_file=last_photo_filename,
-                    local_file=f"stock_images/{letter}.jpg",
-                )
     start_test_button["state"] = "normal"
     logger_value.set("Calibration complete")
     pb.stop()
