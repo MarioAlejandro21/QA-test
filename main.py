@@ -5,17 +5,15 @@ from open_gopro import WirelessGoPro, Params
 import threading
 
 from settings_checks import get_human_readable_fw_version
-from dotenv import load_dotenv
 import os
 import serial
 import time
 from audio import play_wav_file
-from pixel_detection import delta_less_than
+import cv2
+from video_player import play_video
 
 
-load_dotenv()
 
-# /dev/ttyACM0
 # C3464250420765
 
 SERIAL_PORT = "COM12"
@@ -104,7 +102,7 @@ def test():
 
     last_four_digits = sn[-4:]
 
-    with WirelessGoPro(target=f"GoPro {last_four_digits}") as gopro:
+    with WirelessGoPro(target=f"GoPro {last_four_digits}", wifi_interface="Wi-Fi 2") as gopro:
         logger_value.set("Checking settings..")
 
         fw_version = get_human_readable_fw_version(gopro)
@@ -154,6 +152,11 @@ def test():
         if len(media_set_before) == len(media_set_after):
             log_and_reset("failed voice command")
             return
+        
+        last_photo_filename = media_set_after.difference(media_set_before).pop()
+
+        gopro.http_command.download_file(camera_file=last_photo_filename, local_file="images/X.jpg")
+
 
         logger_value.set("Taking testing images...")
 
@@ -169,11 +172,17 @@ def test():
                     gopro=gopro, serial_driver=ser, char_name=letter, dest="images"
                 )
 
-        logger_value.set("Looking for sensor issues...")
-
-        if not delta_less_than("stock_images/W.jpg", "images/W.jpg", 100):
-            log_and_reset("Failed sensor test")
-            return
+        for letter in ['W', 'X', 'R', 'G', 'B']:
+            img = cv2.imread(f'images/{letter}.jpg', )
+            cv2.namedWindow(f"{letter}", cv2.WINDOW_NORMAL)
+            cv2.setWindowProperty(winname=f"{letter}", prop_id=cv2.WND_PROP_FULLSCREEN, prop_value=cv2.WINDOW_FULLSCREEN)
+            cv2.imshow(winname=f"{letter}", mat=img)
+            code = cv2.waitKey(0)
+            if code == 120:
+                log_and_reset("Failed image test")
+                return
+            cv2.destroyAllWindows()
+            print(code)
 
         logger_value.set("Prepare to take video")
         time.sleep(4)
@@ -209,10 +218,11 @@ def test():
             camera_file=last_photo_filename, local_file=f"images/video.mp4"
         )
 
+        play_video('images/video.mp4')
+            
+
     start_test_button["state"] = "normal"
-    logger_value.set(f"Videos and photos ready!")
-    time.sleep(2)
-    logger_value.set(f"{model} OK, FW: {fw_version}")
+    logger_value.set(f"Test ended {model}, FW: {fw_version}")
 
     pb.stop()
 
@@ -221,57 +231,14 @@ start_test_button = ttk.Button(
     mainframe, text="START TEST", command=lambda: threaded_fun(test)
 )
 
-# CALIBRATION BUTTON
-
-
-def image_calibrate():
-    pb.start()
-
-    start_test_button["state"] = "disabled"
-    logger_value.set("Pairing...")
-
-    sn = sn_value.get()
-
-    model = get_model_with_sn_or_none(sn)
-
-    if model == None:
-        log_and_reset("Invalid sn or unsupported model")
-        return
-
-    last_four_digits = sn[-4:]
-
-    with WirelessGoPro(target=f"GoPro {last_four_digits}") as gopro:
-        logger_value.set("Calibrating..")
-        assert gopro.http_command.load_preset_group(
-            group=Params.PresetGroup.PHOTO
-        ).is_ok
-
-        with serial.Serial(SERIAL_PORT, 9600, timeout=1) as ser:
-            time.sleep(2)
-            ser.write("X".encode())
-            time.sleep(3)
-
-            take_and_download_image(
-                gopro=gopro, serial_driver=ser, char_name="W", dest="stock_images"
-            )
-
-    start_test_button["state"] = "normal"
-    logger_value.set("Calibration complete")
-    pb.stop()
-
-
-image_calibration_button = ttk.Button(
-    mainframe, text="IMG. CALIBRATION", command=lambda: threaded_fun(image_calibrate)
-)
 
 # RENDER ELEMENTS IN WINDOW
 sn_input.grid(column=0, row=0)
 start_test_button.grid(column=0, row=2)
-image_calibration_button.grid(column=0, row=3)
 pb.grid(column=0, row=4)
 result_label.grid(column=0, row=5)
 
-sn_input.focus()
+start_test_button.focus()
 
 
 root.mainloop()
