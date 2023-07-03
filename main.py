@@ -18,6 +18,7 @@ from video_player import play_video
 
 SERIAL_PORT = "COM12"
 COMMAND_FILE_NAME = "gopro_take_a_photo.wav"
+MEDIA_FOLDER = "media"
 
 
 root = Tk()
@@ -155,7 +156,7 @@ def test():
         
         last_photo_filename = media_set_after.difference(media_set_before).pop()
 
-        gopro.http_command.download_file(camera_file=last_photo_filename, local_file="images/X.jpg")
+        gopro.http_command.download_file(camera_file=last_photo_filename, local_file=f"{MEDIA_FOLDER}/X.jpg")
 
 
         logger_value.set("Taking testing images...")
@@ -169,7 +170,7 @@ def test():
 
             for letter in ["W", "R", "G", "B"]:
                 take_and_download_image(
-                    gopro=gopro, serial_driver=ser, char_name=letter, dest="images"
+                    gopro=gopro, serial_driver=ser, char_name=letter, dest=MEDIA_FOLDER
                 )
 
         for letter in ['W', 'X', 'R', 'G', 'B']:
@@ -180,9 +181,8 @@ def test():
             code = cv2.waitKey(0)
             if code == 120:
                 log_and_reset("Failed image test")
+                cv2.destroyAllWindows()
                 return
-            cv2.destroyAllWindows()
-            print(code)
 
         logger_value.set("Prepare to take video")
         time.sleep(4)
