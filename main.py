@@ -156,6 +156,9 @@ def test():
         
         last_photo_filename = media_set_after.difference(media_set_before).pop()
 
+        if not os.path.exists(MEDIA_FOLDER):
+            os.makedirs(MEDIA_FOLDER)
+
         gopro.http_command.download_file(camera_file=last_photo_filename, local_file=f"{MEDIA_FOLDER}/X.jpg")
 
 
@@ -183,6 +186,7 @@ def test():
                 log_and_reset("Failed image test")
                 cv2.destroyAllWindows()
                 return
+            cv2.destroyAllWindows()
 
         logger_value.set("Prepare to take video")
         time.sleep(4)
