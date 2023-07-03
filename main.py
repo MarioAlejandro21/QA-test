@@ -5,17 +5,19 @@ from open_gopro import WirelessGoPro, Params
 import threading
 
 from settings_checks import get_human_readable_fw_version
-from dotenv import load_dotenv
 import os
 import serial
 import time
-from audio import play_mp3_file
+from audio import play_wav_file
+import cv2
+from video_player import play_video
 
 
-load_dotenv()
 
-# /dev/ttyACM0
 # C3464250420765
+
+SERIAL_PORT = "COM12"
+COMMAND_FILE_NAME = "gopro_take_a_photo.wav"
 
 
 root = Tk()
@@ -31,7 +33,7 @@ logger_value = StringVar(value="")
 result_label = ttk.Label(mainframe, textvariable=logger_value)
 
 # SN INPUT FIELD
-sn_value = StringVar()
+sn_value = StringVar(value="C3464250420765")
 sn_input = ttk.Entry(mainframe, width=20, textvariable=sn_value)
 
 # PROGRESS BAR
@@ -41,22 +43,42 @@ pb = ttk.Progressbar(mainframe, orient=HORIZONTAL, length=120, mode="indetermina
 pair_button = ttk.Button(mainframe, text="PAIR CAMERA")
 
 
-def make_image_paths():
-    images_path = "images"
-
-    if not os.path.exists(images_path):
-        os.makedirs(images_path)
-
-    stock_path = "stock_images"
-
-    if not os.path.exists(stock_path):
-        os.makedirs(stock_path)
-
-
 def log_and_reset(msg: str):
     logger_value.set(msg)
     start_test_button["state"] = "normal"
     pb.stop()
+
+
+def threaded_fun(fun):
+    T = threading.Thread(target=fun)
+    T.start()
+
+
+def take_and_download_image(
+    gopro: WirelessGoPro, serial_driver, char_name: str, dest: str
+):
+    media_set_before = set(x["n"] for x in gopro.http_command.get_media_list().flatten)
+
+    serial_driver.write(char_name.encode())
+
+    assert gopro.http_command.set_shutter(shutter=Params.Toggle.ENABLE).is_ok
+    
+    time.sleep(0.5)
+
+    serial_driver.write("X".encode())
+
+    time.sleep(2)
+
+    media_set_after = set(x["n"] for x in gopro.http_command.get_media_list().flatten)
+
+    last_photo_filename = media_set_after.difference(media_set_before).pop()
+
+    if not os.path.exists(dest):
+        os.makedirs(dest)
+
+    gopro.http_command.download_file(
+        camera_file=last_photo_filename, local_file=f"{dest}/{char_name}.jpg"
+    )
 
 
 # START TEST BUTTON
@@ -80,9 +102,7 @@ def test():
 
     last_four_digits = sn[-4:]
 
-    with WirelessGoPro(
-        target=f"GoPro {last_four_digits}", sudo_password=os.environ["PASSWORD"]
-    ) as gopro:
+    with WirelessGoPro(target=f"GoPro {last_four_digits}", wifi_interface="Wi-Fi 2") as gopro:
         logger_value.set("Checking settings..")
 
         fw_version = get_human_readable_fw_version(gopro)
@@ -113,43 +133,15 @@ def test():
             group=Params.PresetGroup.PHOTO
         ).is_ok
 
-        make_image_paths()
+        time.sleep(0.3)
 
-        with serial.Serial("/dev/ttyACM0", 9600, timeout=1) as ser:
-            time.sleep(2)
-
-            for letter in ["R", "G", "B"]:
-                media_set_before = set(
-                    x["n"] for x in gopro.http_command.get_media_list().flatten
-                )
-
-                ser.write(letter.encode())
-
-                time.sleep(0.5)
-
-                assert gopro.http_command.set_shutter(
-                    shutter=Params.Toggle.ENABLE
-                ).is_ok
-
-                time.sleep(0.5)
-
-                ser.write("X".encode())
-
-                media_set_after = set(
-                    x["n"] for x in gopro.http_command.get_media_list().flatten
-                )
-
-                last_photo_filename = media_set_after.difference(media_set_before).pop()
-
-                gopro.http_command.download_file(
-                    camera_file=last_photo_filename, local_file=f"images/{letter}.jpg"
-                )
+        logger_value.set("Testing voice command")
 
         media_set_before = set(
             x["n"] for x in gopro.http_command.get_media_list().flatten
         )
 
-        play_mp3_file("audio/gopro_take_photo.mp3")
+        play_wav_file(f"audio/{COMMAND_FILE_NAME}")
 
         time.sleep(2)
 
@@ -160,6 +152,37 @@ def test():
         if len(media_set_before) == len(media_set_after):
             log_and_reset("failed voice command")
             return
+        
+        last_photo_filename = media_set_after.difference(media_set_before).pop()
+
+        gopro.http_command.download_file(camera_file=last_photo_filename, local_file="images/X.jpg")
+
+
+        logger_value.set("Taking testing images...")
+
+        with serial.Serial(SERIAL_PORT, 9600, timeout=1) as ser:
+            time.sleep(2)
+            ser.write("X".encode())
+            time.sleep(3)
+
+            # TAKE COLOR IMAGES
+
+            for letter in ["W", "R", "G", "B"]:
+                take_and_download_image(
+                    gopro=gopro, serial_driver=ser, char_name=letter, dest="images"
+                )
+
+        for letter in ['W', 'X', 'R', 'G', 'B']:
+            img = cv2.imread(f'images/{letter}.jpg', )
+            cv2.namedWindow(f"{letter}", cv2.WINDOW_NORMAL)
+            cv2.setWindowProperty(winname=f"{letter}", prop_id=cv2.WND_PROP_FULLSCREEN, prop_value=cv2.WINDOW_FULLSCREEN)
+            cv2.imshow(winname=f"{letter}", mat=img)
+            code = cv2.waitKey(0)
+            if code == 120:
+                log_and_reset("Failed image test")
+                return
+            cv2.destroyAllWindows()
+            print(code)
 
         logger_value.set("Prepare to take video")
         time.sleep(4)
@@ -195,29 +218,27 @@ def test():
             camera_file=last_photo_filename, local_file=f"images/video.mp4"
         )
 
+        play_video('images/video.mp4')
+            
+
     start_test_button["state"] = "normal"
-    logger_value.set(f"Videos and photos ready!")
-    time.sleep(2)
-    logger_value.set(f"{model} OK, FW: {fw_version}")
+    logger_value.set(f"Test ended {model}, FW: {fw_version}")
 
     pb.stop()
 
 
-def threaded_test():
-    T = threading.Thread(target=test)
-    T.start()
-
-
-start_test_button = ttk.Button(mainframe, text="START TEST", command=threaded_test)
+start_test_button = ttk.Button(
+    mainframe, text="START TEST", command=lambda: threaded_fun(test)
+)
 
 
 # RENDER ELEMENTS IN WINDOW
 sn_input.grid(column=0, row=0)
 start_test_button.grid(column=0, row=2)
-pb.grid(column=0, row=3)
-result_label.grid(column=0, row=4)
+pb.grid(column=0, row=4)
+result_label.grid(column=0, row=5)
 
-sn_input.focus()
+start_test_button.focus()
 
 
 root.mainloop()
