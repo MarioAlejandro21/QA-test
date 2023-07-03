@@ -106,7 +106,7 @@ def test():
 
     try:
         gopro = WirelessGoPro(target=f"GoPro {last_four_digits}", wifi_interface="Wi-Fi 2")
-        gopro.open(timeout=10, retries=3)
+        gopro.open()
     except:
         logger_value.set("Failed to found wireless device.")
         pb.stop()
