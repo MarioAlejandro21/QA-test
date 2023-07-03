@@ -177,7 +177,7 @@ def test():
                 )
 
         for letter in ['W', 'X', 'R', 'G', 'B']:
-            img = cv2.imread(f'images/{letter}.jpg', )
+            img = cv2.imread(f'{MEDIA_FOLDER}/{letter}.jpg', )
             cv2.namedWindow(f"{letter}", cv2.WINDOW_NORMAL)
             cv2.setWindowProperty(winname=f"{letter}", prop_id=cv2.WND_PROP_FULLSCREEN, prop_value=cv2.WINDOW_FULLSCREEN)
             cv2.imshow(winname=f"{letter}", mat=img)
@@ -219,10 +219,10 @@ def test():
         logger_value.set("Downloading video..")
 
         gopro.http_command.download_file(
-            camera_file=last_photo_filename, local_file=f"images/video.mp4"
+            camera_file=last_photo_filename, local_file=f"{MEDIA_FOLDER}/video.mp4"
         )
 
-        play_video('images/video.mp4')
+        play_video(f"{MEDIA_FOLDER}/video.mp4")
             
 
     start_test_button["state"] = "normal"
