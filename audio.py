@@ -1,5 +1,3 @@
-from sounddevice import play, wait
-from soundfile import read
 import winsound
 
 
