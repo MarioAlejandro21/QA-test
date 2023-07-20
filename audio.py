@@ -6,7 +6,7 @@ load_dotenv()
 
 def play_wav_file(path):
 
-    output_id = getenv('AUDIO_OUTPUT_ID')
+    output_id = int(getenv('AUDIO_OUTPUT_ID'), base=10)
 
     sd.default.device[1] = output_id
     
