@@ -136,64 +136,66 @@ def test():
     if not gopro.ble_status.sd_status.get_value().flatten == Params.SDStatus.OK:
         log_and_close_connection("Failed SD card.", gopro)
         return
-
-    assert gopro.http_command.load_preset_group(
-        group=Params.PresetGroup.PHOTO
-    ).is_ok
-
-    time.sleep(0.3)
-
-    logger_value.set("Testing voice command")
-
-    media_set_before = set(
-        x["n"] for x in gopro.http_command.get_media_list().flatten
-    )
-
-    play_wav_file(f"audio/{COMMAND_FILE_NAME}")
-
-    time.sleep(2)
-
-    media_set_after = set(
-        x["n"] for x in gopro.http_command.get_media_list().flatten
-    )
-
-    if len(media_set_before) == len(media_set_after):
-        log_and_close_connection("failed voice command", gopro)
-        return
     
-    last_photo_filename = media_set_after.difference(media_set_before).pop()
+    if model != "Hero11 Pismo":
 
-    if not os.path.exists(MEDIA_FOLDER):
-        os.makedirs(MEDIA_FOLDER)
+        assert gopro.http_command.load_preset_group(
+            group=Params.PresetGroup.PHOTO
+        ).is_ok
 
-    gopro.http_command.download_file(camera_file=last_photo_filename, local_file=f"{MEDIA_FOLDER}/X.jpg")
+        time.sleep(0.3)
 
+        logger_value.set("Testing voice command")
 
-    logger_value.set("Taking testing images...")
+        media_set_before = set(
+            x["n"] for x in gopro.http_command.get_media_list().flatten
+        )
 
-    with serial.Serial(SERIAL_PORT, 9600, timeout=1) as ser:
+        play_wav_file(f"audio/{COMMAND_FILE_NAME}")
+
         time.sleep(2)
-        ser.write("X".encode())
-        time.sleep(3)
 
-        # TAKE COLOR IMAGES
+        media_set_after = set(
+            x["n"] for x in gopro.http_command.get_media_list().flatten
+        )
 
-        for letter in ["W", "R", "G", "B"]:
-            take_and_download_image(
-                gopro=gopro, serial_driver=ser, char_name=letter, dest=MEDIA_FOLDER
-            )
-
-    for letter in ['W', 'X', 'R', 'G', 'B']:
-        img = cv2.imread(f'{MEDIA_FOLDER}/{letter}.jpg', )
-        cv2.namedWindow(f"{letter}", cv2.WINDOW_NORMAL)
-        cv2.setWindowProperty(winname=f"{letter}", prop_id=cv2.WND_PROP_FULLSCREEN, prop_value=cv2.WINDOW_FULLSCREEN)
-        cv2.imshow(winname=f"{letter}", mat=img)
-        code = cv2.waitKey(0)
-        if code == 120:
-            log_and_close_connection("Failed image test", gopro)
-            cv2.destroyAllWindows()
+        if len(media_set_before) == len(media_set_after):
+            log_and_close_connection("failed voice command", gopro)
             return
-        cv2.destroyAllWindows()
+        
+        last_photo_filename = media_set_after.difference(media_set_before).pop()
+
+        if not os.path.exists(MEDIA_FOLDER):
+            os.makedirs(MEDIA_FOLDER)
+
+        gopro.http_command.download_file(camera_file=last_photo_filename, local_file=f"{MEDIA_FOLDER}/X.jpg")
+
+
+        logger_value.set("Taking testing images...")
+
+        with serial.Serial(SERIAL_PORT, 9600, timeout=1) as ser:
+            time.sleep(2)
+            ser.write("X".encode())
+            time.sleep(3)
+
+            # TAKE COLOR IMAGES
+
+            for letter in ["W", "R", "G", "B"]:
+                take_and_download_image(
+                    gopro=gopro, serial_driver=ser, char_name=letter, dest=MEDIA_FOLDER
+                )
+
+        for letter in ['W', 'X', 'R', 'G', 'B']:
+            img = cv2.imread(f'{MEDIA_FOLDER}/{letter}.jpg', )
+            cv2.namedWindow(f"{letter}", cv2.WINDOW_NORMAL)
+            cv2.setWindowProperty(winname=f"{letter}", prop_id=cv2.WND_PROP_FULLSCREEN, prop_value=cv2.WINDOW_FULLSCREEN)
+            cv2.imshow(winname=f"{letter}", mat=img)
+            code = cv2.waitKey(0)
+            if code == 120:
+                log_and_close_connection("Failed image test", gopro)
+                cv2.destroyAllWindows()
+                return
+            cv2.destroyAllWindows()
 
     logger_value.set("Prepare to take video")
     time.sleep(4)

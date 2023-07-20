@@ -2,6 +2,7 @@ import sounddevice as sd
 from scipy.io.wavfile import read
 from dotenv import load_dotenv
 from os import getenv
+
 load_dotenv()
 
 def play_wav_file(path):
@@ -12,9 +13,8 @@ def play_wav_file(path):
     
     sampling_rate, data = read(path)
 
-    sd.play(data=data, samplerate=sampling_rate)
+    sd.play(data=data, samplerate=sampling_rate, blocking=True)
 
-    sd.wait()
 
 
 
