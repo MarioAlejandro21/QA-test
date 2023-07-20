@@ -11,15 +11,13 @@ import time
 from audio import play_wav_file
 import cv2
 from video_player import play_video
+from dotenv import load_dotenv
+load_dotenv()
 
 
-
-# C3464250420765
-
-SERIAL_PORT = "COM12"
+SERIAL_PORT = os.getenv('SERIAL_PORT')
 COMMAND_FILE_NAME = "gopro_take_a_photo.wav"
-MEDIA_FOLDER = "media"
-
+MEDIA_FOLDER = os.getenv('MEDIA_FOLDER')
 
 root = Tk()
 root.title("GO PRO AUTOTEST")
