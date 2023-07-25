@@ -5,7 +5,7 @@ def get_model_with_sn_or_none(sn):
         {"sn_pattern": "^C344(?:13|34|42)", "folder_name": "Hero9 Black"},
         {"sn_pattern": "^C346(?:13|42)", "folder_name": "Hero10 Black"},
         {"sn_pattern": "^C349(?:11|42)", "folder_name": "Hero11 Pismo"},
-        {"sn_pattern": "^C34713", "folder_name": "Hero11 Sultan"}
+        {"sn_pattern": "^C347", "folder_name": "Hero11 Sultan"}
     ]
     result = None
     for info in lookup_model_info:

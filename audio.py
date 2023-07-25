@@ -15,6 +15,3 @@ def play_wav_file(path):
 
     sd.play(data=data, samplerate=sampling_rate, blocking=True)
 
-
-
-
