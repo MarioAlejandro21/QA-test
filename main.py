@@ -12,6 +12,7 @@ from audio import play_wav_file
 import cv2
 from video_player import play_video
 from dotenv import load_dotenv
+
 load_dotenv()
 
 
@@ -32,7 +33,7 @@ logger_value = StringVar(value="")
 result_label = ttk.Label(mainframe, textvariable=logger_value)
 
 # SN INPUT FIELD
-sn_value = StringVar(value="C3464250420765")
+sn_value = StringVar()
 sn_input = ttk.Entry(mainframe, width=20, textvariable=sn_value)
 
 # PROGRESS BAR
@@ -61,7 +62,7 @@ def take_and_download_image(
 
     serial_driver.write(char_name.encode())
 
-    assert gopro.http_command.set_shutter(shutter=Params.Toggle.ENABLE).is_ok
+    assert gopro.ble_command.set_shutter(shutter=Params.Toggle.ENABLE).is_ok
     
     time.sleep(0.5)
 
@@ -98,12 +99,15 @@ def test():
 
     if model == None:
         logger_value.set("Invalid sn or unsupported model")
+        pb.stop()
+        sn_input.state = "normal"
         return
 
     last_four_digits = sn[-4:]
 
+
     try:
-        gopro = WirelessGoPro(target=f"GoPro {last_four_digits}", wifi_interface="Wi-Fi 2")
+        gopro = WirelessGoPro(target=f"GoPro {last_four_digits}")
         gopro.open()
     except:
         logger_value.set("Failed to found wireless device.")
@@ -137,6 +141,7 @@ def test():
         log_and_close_connection("Failed SD card.", gopro)
         return
     
+
     if model != "Hero11 Pismo":
 
         assert gopro.http_command.load_preset_group(
@@ -213,11 +218,11 @@ def test():
 
     logger_value.set("Recording 10 sec video")
 
-    assert gopro.http_command.set_shutter(shutter=Params.Toggle.ENABLE).is_ok
+    assert gopro.ble_command.set_shutter(shutter=Params.Toggle.ENABLE).is_ok
 
     time.sleep(10)
 
-    assert gopro.http_command.set_shutter(shutter=Params.Toggle.DISABLE).is_ok
+    assert gopro.ble_command.set_shutter(shutter=Params.Toggle.DISABLE).is_ok
 
     media_set_after = set(
         x["n"] for x in gopro.http_command.get_media_list().flatten
@@ -239,6 +244,9 @@ def test():
     start_test_button["state"] = "normal"
     logger_value.set(f"Test ended {model}, FW: {fw_version}")
 
+    sn_value.set("")
+    sn_input.focus()
+
     pb.stop()
 
 
@@ -253,7 +261,7 @@ start_test_button.grid(column=0, row=2)
 pb.grid(column=0, row=4)
 result_label.grid(column=0, row=5)
 
-start_test_button.focus()
+sn_input.focus()
 
 
 root.mainloop()
